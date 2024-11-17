@@ -1,2 +1,0 @@
-# OODCoursework
-Personalized News Recommendation
