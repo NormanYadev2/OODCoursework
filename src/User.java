@@ -1,49 +1,55 @@
-import java.util.HashMap;
-import java.util.Map;
+import java.sql.Connection;
+import java.sql.PreparedStatement;
+import java.sql.ResultSet;
+import java.sql.SQLException;
 
-public class User {
-    private String email;
-    private String password;
+public class User extends Person {
 
-    // Map to store registered users in memory (email -> password)
-    private static final Map<String, String> userDatabase = new HashMap<>();
-
-    // Map to store user's ratings for articles (articleName -> rating)
-    private final Map<String, Integer> articleRatings = new HashMap<>();
-
-    // Constructor
-    public User(String email, String password) {
-        this.email = email;
-        this.password = password;
+    public User(String username, String password) {
+        super(username, password);
     }
 
-    // Method to register a new user
-    public static boolean registerUser(String email, String password) {
-        if (userDatabase.containsKey(email)) {
-            return false; // User already exists
+    // Login implementation for User
+    @Override
+    public boolean login(Connection conn) {
+        String query = "SELECT * FROM users WHERE username = ? AND password = ?";
+        try {
+            PreparedStatement pstmt = conn.prepareStatement(query);
+            pstmt.setString(1, this.username);
+            pstmt.setString(2, this.password);
+            ResultSet rs = pstmt.executeQuery();
+            return rs.next();
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
         }
-        userDatabase.put(email, password);
-        return true;
     }
 
-    // Method to login user
-    public static boolean loginUser(String email, String password) {
-        return userDatabase.containsKey(email) && userDatabase.get(email).equals(password);
-    }
+    // Registration for a new user
+    public static boolean register(String username, String password, Connection conn) {
+        String checkQuery = "SELECT * FROM users WHERE username = ?";
+        String insertQuery = "INSERT INTO users (username, password) VALUES (?, ?)";
 
-    // Method to add or update the rating for a specific article
-    public void addArticleRating(String article, int rating) {
-        articleRatings.put(article, rating);
-        System.out.println("Rating for article '" + article + "' has been saved.");
-    }
+        try {
+            // Check if username exists
+            PreparedStatement checkStmt = conn.prepareStatement(checkQuery);
+            checkStmt.setString(1, username);
+            ResultSet rs = checkStmt.executeQuery();
+            if (rs.next()) {
+                System.out.println("Username already exists.");
+                return false;
+            }
 
-    // Method to get the rating for a specific article (if exists)
-    public Integer getArticleRating(String article) {
-        return articleRatings.get(article);
-    }
-
-    // Method to check if a user is already registered
-    public static boolean isUserRegistered(String email) {
-        return userDatabase.containsKey(email);
+            // Insert new user
+            PreparedStatement insertStmt = conn.prepareStatement(insertQuery);
+            insertStmt.setString(1, username);
+            insertStmt.setString(2, password);
+            insertStmt.executeUpdate();
+            System.out.println("Registration successful!");
+            return true;
+        } catch (SQLException e) {
+            e.printStackTrace();
+            return false;
+        }
     }
 }
