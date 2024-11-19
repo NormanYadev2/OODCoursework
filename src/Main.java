@@ -10,7 +10,12 @@ public class Main {
             return;
         }
 
+        // Clear previous user data when the program starts
+        DatabaseConnection.clearUsersTable(conn);
+
+        // Initialize the Scanner here and use it throughout the program
         Scanner scanner = new Scanner(System.in);
+
         while (true) {
             System.out.println("\nMain Menu:");
             System.out.println("1. Register for User");
@@ -23,14 +28,16 @@ public class Main {
 
             switch (choice) {
                 case 1:
+                    // Register a new user
                     System.out.print("Enter username: ");
                     String username = scanner.nextLine();
                     System.out.print("Enter password: ");
                     String password = scanner.nextLine();
-                    User.register(username, password, conn);
+                    User.register(username, password, conn); // Pass username, password, and connection
                     break;
 
                 case 2:
+                    // User login
                     System.out.print("Enter username: ");
                     String userUsername = scanner.nextLine();
                     System.out.print("Enter password: ");
@@ -45,6 +52,7 @@ public class Main {
                     break;
 
                 case 3:
+                    // Admin login
                     System.out.print("Enter admin username: ");
                     String adminUsername = scanner.nextLine();
                     System.out.print("Enter admin password: ");
@@ -59,8 +67,9 @@ public class Main {
                     break;
 
                 case 4:
+                    // Logout
                     System.out.println("Logging out...");
-                    scanner.close();
+                    scanner.close();  // Close the scanner on logout
                     return;
 
                 default:

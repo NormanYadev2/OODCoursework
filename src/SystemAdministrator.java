@@ -13,12 +13,12 @@ public class SystemAdministrator extends Person {
     @Override
     public boolean login(Connection conn) {
         String query = "SELECT * FROM admins WHERE username = ? AND password = ?";
-        try {
-            PreparedStatement pstmt = conn.prepareStatement(query);
+        try (PreparedStatement pstmt = conn.prepareStatement(query)) {
             pstmt.setString(1, this.username);
             pstmt.setString(2, this.password);
-            ResultSet rs = pstmt.executeQuery();
-            return rs.next();
+            try (ResultSet rs = pstmt.executeQuery()) {
+                return rs.next();
+            }
         } catch (SQLException e) {
             e.printStackTrace();
             return false;
