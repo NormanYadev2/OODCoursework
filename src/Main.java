@@ -1,4 +1,4 @@
-import java.sql.Connection;
+import java.sql.*;
 import java.util.Scanner;
 
 public class Main {
@@ -45,7 +45,22 @@ public class Main {
                     User user = new User(userUsername, userPassword);
                     if (user.login(conn)) {
                         System.out.println("User login successful!");
-                        // Add more user-specific options here
+                        // Display options for the logged-in user
+                        System.out.println("1. View Article");
+                        System.out.println("2. Return to Homepage");
+
+                        int userChoice = scanner.nextInt();
+                        scanner.nextLine(); // Consume newline
+
+                        if (userChoice == 1) {
+                            // View article flow
+                            ViewArticle.viewArticles(conn); // Call ViewArticle class to display categories and articles
+                        } else if (userChoice == 2) {
+                            System.out.println("Returning to homepage...");
+                        } else {
+                            System.out.println("Invalid choice.");
+                        }
+
                     } else {
                         System.out.println("Invalid credentials.");
                     }
@@ -69,7 +84,7 @@ public class Main {
                 case 4:
                     // Logout
                     System.out.println("Logging out...");
-                    scanner.close();  // Close the scanner on logout
+                    scanner.close(); // Close the scanner on logout
                     return;
 
                 default:
