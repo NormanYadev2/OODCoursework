@@ -10,10 +10,8 @@ public class Main {
             return;
         }
 
-        // Clear previous user data when the program starts
-        DatabaseConnection.clearUsersTable(conn);
+        ArticleManager.processArticles(conn); // Process articles and assign categories
 
-        // Initialize the Scanner here and use it throughout the program
         Scanner scanner = new Scanner(System.in);
 
         while (true) {
@@ -24,20 +22,18 @@ public class Main {
             System.out.println("4. Logout");
             System.out.print("Enter your choice: ");
             int choice = scanner.nextInt();
-            scanner.nextLine(); // Consume newline
+            scanner.nextLine();
 
             switch (choice) {
                 case 1:
-                    // Register a new user
                     System.out.print("Enter username: ");
                     String username = scanner.nextLine();
                     System.out.print("Enter password: ");
                     String password = scanner.nextLine();
-                    User.register(username, password, conn); // Pass username, password, and connection
+                    User.register(username, password, conn);
                     break;
 
                 case 2:
-                    // User login
                     System.out.print("Enter username: ");
                     String userUsername = scanner.nextLine();
                     System.out.print("Enter password: ");
@@ -45,29 +41,13 @@ public class Main {
                     User user = new User(userUsername, userPassword);
                     if (user.login(conn)) {
                         System.out.println("User login successful!");
-                        // Display options for the logged-in user
-                        System.out.println("1. View Article");
-                        System.out.println("2. Return to Homepage");
-
-                        int userChoice = scanner.nextInt();
-                        scanner.nextLine(); // Consume newline
-
-                        if (userChoice == 1) {
-                            // View article flow
-                            ViewArticle.viewArticles(conn); // Call ViewArticle class to display categories and articles
-                        } else if (userChoice == 2) {
-                            System.out.println("Returning to homepage...");
-                        } else {
-                            System.out.println("Invalid choice.");
-                        }
-
+                        userDashboard(scanner, conn); // Call the user dashboard
                     } else {
                         System.out.println("Invalid credentials.");
                     }
                     break;
 
                 case 3:
-                    // Admin login
                     System.out.print("Enter admin username: ");
                     String adminUsername = scanner.nextLine();
                     System.out.print("Enter admin password: ");
@@ -75,17 +55,40 @@ public class Main {
                     SystemAdministrator admin = new SystemAdministrator(adminUsername, adminPassword);
                     if (admin.login(conn)) {
                         System.out.println("Admin login successful!");
-                        // Add admin-specific actions here
                     } else {
                         System.out.println("Invalid credentials.");
                     }
                     break;
 
                 case 4:
-                    // Logout
                     System.out.println("Logging out...");
-                    scanner.close(); // Close the scanner on logout
+                    scanner.close();
                     return;
+
+                default:
+                    System.out.println("Invalid choice. Please try again.");
+            }
+        }
+    }
+
+    // User dashboard menu
+    private static void userDashboard(Scanner scanner, Connection conn) {
+        while (true) {
+            System.out.println("\nUser Dashboard:");
+            System.out.println("1. View Articles");
+            System.out.println("2. Return to Homepage");
+            System.out.print("Enter your choice: ");
+            int userChoice = scanner.nextInt();
+            scanner.nextLine();
+
+            switch (userChoice) {
+                case 1:
+                    ViewArticle.viewArticles(conn); // View articles
+                    break;
+
+                case 2:
+                    System.out.println("Returning to homepage...");
+                    return; // Exit the dashboard loop and return to the main menu
 
                 default:
                     System.out.println("Invalid choice. Please try again.");

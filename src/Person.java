@@ -11,4 +11,6 @@ public abstract class Person {
 
     // Abstract method to enforce login implementation
     public abstract boolean login(Connection conn);
+
+
 }

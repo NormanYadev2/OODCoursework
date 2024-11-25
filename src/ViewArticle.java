@@ -1,53 +1,91 @@
-import java.sql.*;
+import java.sql.Connection;
 import java.util.List;
+import java.util.Map;
 import java.util.Scanner;
 
 public class ViewArticle {
 
-    private static Scanner scanner = new Scanner(System.in);
+    private static final Scanner scanner = new Scanner(System.in);
 
-    // Fetch categories from the database
+    // Display all categories available in the database
     public static void displayCategories(Connection conn) {
-        // Get categories from the database (assumes the ArticleManager has a method to fetch them)
         List<String> categories = ArticleManager.getCategories(conn);
-        System.out.println("Choose your favourite category:");
 
-        // Display all categories, ensuring we show all available categories
+        if (categories.isEmpty()) {
+            System.out.println("No categories available at the moment.");
+            return;
+        }
+
+        System.out.println("Choose your favourite category:");
         for (int i = 0; i < categories.size(); i++) {
             System.out.println((i + 1) + ") " + categories.get(i));
         }
     }
 
-    // Fetch and display articles based on the selected category
+    // Display articles based on the selected category
     public static void displayArticlesByCategory(Connection conn, int categoryId) {
         // Fetch articles for the selected category
-        List<String> articles = ArticleManager.getArticlesByCategory(conn, categoryId);
-        System.out.println("Select an article to view:");
+        List<Map<String, String>> articles = ArticleManager.getArticlesByCategory(conn, categoryId);
 
-        // Display the articles for the selected category (limit to 5 articles per category)
-        for (int i = 0; i < articles.size(); i++) {
-            System.out.println((i + 1) + ") " + articles.get(i));
+        if (articles.isEmpty()) {
+            System.out.println("No articles available in this category.");
+            return;
         }
 
-        // Let the user select an article
-        int articleChoice = scanner.nextInt();
-        scanner.nextLine(); // Consume newline
+        System.out.println("Select an article to view:");
+        for (int i = 0; i < articles.size(); i++) {
+            System.out.println((i + 1) + ") " + articles.get(i).get("title"));
+        }
 
-        // Fetch and display the selected article content
-        String articleContent = ArticleManager.getArticleContent(conn, articleChoice);
-        System.out.println("Article Content:\n" + articleContent);
+        // Validate and process user selection
+        try {
+            System.out.print("Enter your choice: ");
+            int articleChoice = Integer.parseInt(scanner.nextLine());
+
+            if (articleChoice < 1 || articleChoice > articles.size()) {
+                System.out.println("Invalid article choice. Please try again.");
+                return;
+            }
+
+            // Display the selected article's content
+            Map<String, String> selectedArticle = articles.get(articleChoice - 1);
+            System.out.println("\nArticle Content:\n" + selectedArticle.get("content"));
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input. Please enter a valid number.");
+        }
     }
 
-    // Main function to initiate the article viewing process
+    // Process uncategorized articles
+    public static void processUncategorizedArticles(Connection conn) {
+        System.out.println("Processing uncategorized articles...");
+        ArticleManager.processArticles(conn);
+        System.out.println("Uncategorized articles have been categorized.");
+    }
+
+    // Main function to view articles
     public static void viewArticles(Connection conn) {
+        // Process uncategorized articles first
+        processUncategorizedArticles(conn);
+
+        // Display categories for user to choose from
         displayCategories(conn);
 
-        // Get the user's category choice
-        int categoryChoice = scanner.nextInt();
-        scanner.nextLine(); // Consume newline
+        System.out.print("Enter the category number: ");
+        try {
+            int categoryChoice = Integer.parseInt(scanner.nextLine());
 
-        // Map the selected category choice to the category ID
-        int selectedCategoryId = categoryChoice;  // Assuming category IDs map directly to the choice for simplicity
-        displayArticlesByCategory(conn, selectedCategoryId);
+            // Validate category selection
+            List<String> categories = ArticleManager.getCategories(conn);
+            if (categoryChoice < 1 || categoryChoice > categories.size()) {
+                System.out.println("Invalid category choice. Please try again.");
+                return;
+            }
+
+            // Map user's choice to category ID and display articles
+            int selectedCategoryId = ArticleManager.getCategoryIdByName(conn, categories.get(categoryChoice - 1));
+            displayArticlesByCategory(conn, selectedCategoryId);
+        } catch (NumberFormatException e) {
+            System.out.println("Invalid input. Please enter a valid number.");
+        }
     }
 }
