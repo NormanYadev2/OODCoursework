@@ -50,6 +50,29 @@ public class ViewArticle {
             // Display the selected article's content
             Map<String, String> selectedArticle = articles.get(articleChoice - 1);
             System.out.println("\nArticle Content:\n" + selectedArticle.get("content"));
+
+            // Ask the user if they want to rate the article
+            System.out.print("\nDo you wish to rate this article? (yes/no): ");
+            String rateResponse = scanner.nextLine().trim().toLowerCase();
+
+            if (rateResponse.equals("yes")) {
+                System.out.print("Rate the article out of 5: ");
+                try {
+                    int rating = Integer.parseInt(scanner.nextLine());
+
+                    if (rating < 1 || rating > 5) {
+                        System.out.println("Invalid rating. Please enter a number between 1 and 5.");
+                    } else {
+                        ArticleManager.rateArticle(conn, Integer.parseInt(selectedArticle.get("id")), rating);
+                        System.out.println("Thank you for your feedback!");
+                    }
+                } catch (NumberFormatException e) {
+                    System.out.println("Invalid input. Please enter a valid number.");
+                }
+            }
+
+            // Return to the user dashboard
+            System.out.println("Returning to the user dashboard...");
         } catch (NumberFormatException e) {
             System.out.println("Invalid input. Please enter a valid number.");
         }

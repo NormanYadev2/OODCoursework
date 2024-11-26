@@ -104,49 +104,35 @@ public class ArticleManager {
     }
 
     // Categorize article using title and content
+    // Categorize article using title and content
     public static String categorizeArticle(String title, String content) {
         Map<String, List<String>> categoryKeywords = new HashMap<>();
         categoryKeywords.put("Entertainment", Arrays.asList(
-                "movies", "gaming", "music", "celebrity", "tv", "theater", "hollywood", "songs",
-                "concerts", "film", "drama", "award", "scenes", "k-pop", "streaming", "behind the scenes", "k pop", "kpop"));
+                "movies", "gaming", "music", "celebrity", "tv", "hollywood", "concert", "k-pop", "drama"));
         categoryKeywords.put("Health", Arrays.asList(
-                "health", "stress", "diet", "fitness", "nutrition", "wellness", "disease", "therapy", "mental well-being"));
+                "health", "stress", "diet", "fitness", "wellness", "therapy", "mental well-being"));
         categoryKeywords.put("Science", Arrays.asList(
-                "research", "nasa", "theory", "experiment", "discovery", "biology", "physics", "chemistry", "space", "environment", "climate", "warming", "ocean", "marine", "ecosystem", "coral", "reef", "sea level", "biodiversity", "biodiversity conservation", "conservation"));
+                "research", "nasa", "biology", "physics", "chemistry", "climate", "ocean", "biodiversity"));
         categoryKeywords.put("Sports", Arrays.asList(
-                "mental side of sports", "youth sports", "community development", "soccer", "sports", "game", "games",
-                "training", "olympics", "tournament", "athlete", "cricket", "football", "basketball", "hockey", "winning"));
+                "soccer", "sports", "cricket", "football", "basketball", "hockey", "athlete", "olympics"));
         categoryKeywords.put("Technology", Arrays.asList(
-                "ai", "technology", "computing", "smart", "blockchain", "software", "tech", "innovation",
-                "gadgets", "computers", "robotics", "internet", "cyber", "streaming"));
+                "ai", "technology", "computing", "blockchain", "robotics", "gadgets", "cyber", "internet"));
 
         String normalizedText = (title + " " + content).toLowerCase();
 
-        // Debugging output to track keyword matches
-        Map<String, Integer> categoryMatches = new HashMap<>();
+        String bestCategory = "Uncategorized";
+        int maxMatches = 0;
+
         for (Map.Entry<String, List<String>> entry : categoryKeywords.entrySet()) {
             String category = entry.getKey();
             int matches = 0;
 
             for (String keyword : entry.getValue()) {
                 if (normalizedText.contains(keyword.toLowerCase())) {
-                    matches += keyword.split(" ").length > 1 ? 5 : 1; // Higher weight for exact phrases
-                    System.out.println("Matched keyword '" + keyword + "' in category: " + category);
+                    matches++;
                 }
             }
-            categoryMatches.put(category, matches);
-        }
 
-        // Display match results
-        System.out.println("Category matches: " + categoryMatches);
-
-        // Prioritize sports over health when matches are tied
-        List<String> prioritizedCategories = Arrays.asList("Sports", "Health", "Science", "Technology", "Entertainment");
-        String bestCategory = "Uncategorized";
-        int maxMatches = 0;
-
-        for (String category : prioritizedCategories) {
-            int matches = categoryMatches.getOrDefault(category, 0);
             if (matches > maxMatches) {
                 maxMatches = matches;
                 bestCategory = category;
@@ -155,4 +141,16 @@ public class ArticleManager {
 
         return bestCategory;
     }
+    // Save article rating to the database
+    public static void rateArticle(Connection conn, int articleId, int rating) {
+        String query = "INSERT INTO article_ratings (article_id, rating) VALUES (?, ?)";
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setInt(1, articleId);
+            stmt.setInt(2, rating);
+            stmt.executeUpdate();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
+    }
+
 }
