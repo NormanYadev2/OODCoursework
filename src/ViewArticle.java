@@ -23,8 +23,7 @@ public class ViewArticle {
     }
 
     // Display articles based on the selected category
-    public static void displayArticlesByCategory(Connection conn, int categoryId) {
-        // Fetch articles for the selected category
+    public static void displayArticlesByCategory(Connection conn, int categoryId, int userId, String username) {
         List<Map<String, String>> articles = ArticleManager.getArticlesByCategory(conn, categoryId);
 
         if (articles.isEmpty()) {
@@ -37,7 +36,6 @@ public class ViewArticle {
             System.out.println((i + 1) + ") " + articles.get(i).get("title"));
         }
 
-        // Validate and process user selection
         try {
             System.out.print("Enter your choice: ");
             int articleChoice = Integer.parseInt(scanner.nextLine());
@@ -47,11 +45,13 @@ public class ViewArticle {
                 return;
             }
 
-            // Display the selected article's content
             Map<String, String> selectedArticle = articles.get(articleChoice - 1);
+            int articleId = Integer.parseInt(selectedArticle.get("id"));
             System.out.println("\nArticle Content:\n" + selectedArticle.get("content"));
 
-            // Ask the user if they want to rate the article
+            // Record the article view with the userId and username
+            int viewId = ArticleManager.recordArticleView(conn, articleId, userId, username);
+
             System.out.print("\nDo you wish to rate this article? (yes/no): ");
             String rateResponse = scanner.nextLine().trim().toLowerCase();
 
@@ -63,7 +63,7 @@ public class ViewArticle {
                     if (rating < 1 || rating > 5) {
                         System.out.println("Invalid rating. Please enter a number between 1 and 5.");
                     } else {
-                        ArticleManager.rateArticle(conn, Integer.parseInt(selectedArticle.get("id")), rating);
+                        ArticleManager.updateArticleRating(conn, viewId, rating);
                         System.out.println("Thank you for your feedback!");
                     }
                 } catch (NumberFormatException e) {
@@ -71,7 +71,6 @@ public class ViewArticle {
                 }
             }
 
-            // Return to the user dashboard
             System.out.println("Returning to the user dashboard...");
         } catch (NumberFormatException e) {
             System.out.println("Invalid input. Please enter a valid number.");
@@ -86,7 +85,7 @@ public class ViewArticle {
     }
 
     // Main function to view articles
-    public static void viewArticles(Connection conn) {
+    public static void viewArticles(Connection conn, int userId, String username) {
         // Process uncategorized articles first
         processUncategorizedArticles(conn);
 
@@ -99,14 +98,14 @@ public class ViewArticle {
 
             // Validate category selection
             List<String> categories = ArticleManager.getCategories(conn);
-            if (categoryChoice < 1 || categoryChoice > categories.size()) {
+            if (categories.isEmpty() || categoryChoice < 1 || categoryChoice > categories.size()) {
                 System.out.println("Invalid category choice. Please try again.");
                 return;
             }
 
             // Map user's choice to category ID and display articles
             int selectedCategoryId = ArticleManager.getCategoryIdByName(conn, categories.get(categoryChoice - 1));
-            displayArticlesByCategory(conn, selectedCategoryId);
+            displayArticlesByCategory(conn, selectedCategoryId, userId, username);
         } catch (NumberFormatException e) {
             System.out.println("Invalid input. Please enter a valid number.");
         }

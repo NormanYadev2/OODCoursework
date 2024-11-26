@@ -1,7 +1,4 @@
-import java.sql.Connection;
-import java.sql.PreparedStatement;
-import java.sql.ResultSet;
-import java.sql.SQLException;
+import java.sql.*;
 
 public class User extends Person {
 
@@ -26,31 +23,40 @@ public class User extends Person {
     }
 
     // Registration for a new user
-    public static boolean register(String username, String password, Connection conn) {
-        String checkQuery = "SELECT * FROM users WHERE username = ?";
-        String insertQuery = "INSERT INTO users (username, password) VALUES (?, ?)";
+    public static void register(String username, String password, Connection conn) {
+        String sql = "INSERT INTO users (username, password) VALUES (?, ?)";
+        try (PreparedStatement pstmt = conn.prepareStatement(sql, Statement.RETURN_GENERATED_KEYS)) {
+            pstmt.setString(1, username);
+            pstmt.setString(2, password);
+            pstmt.executeUpdate();
 
-        try (PreparedStatement checkStmt = conn.prepareStatement(checkQuery);
-             PreparedStatement insertStmt = conn.prepareStatement(insertQuery)) {
-
-            // Check if username exists
-            checkStmt.setString(1, username);
-            try (ResultSet rs = checkStmt.executeQuery()) {
+            // Retrieve the generated user_id
+            try (ResultSet rs = pstmt.getGeneratedKeys()) {
                 if (rs.next()) {
-                    System.out.println("Username already exists.");
-                    return false;
+                    int userId = rs.getInt(1);
+                    System.out.println("User registered successfully! Your User ID is: " + userId);
                 }
             }
-
-            // Insert new user
-            insertStmt.setString(1, username);
-            insertStmt.setString(2, password);
-            insertStmt.executeUpdate();
-            System.out.println("Registration successful!");
-            return true;
         } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
+            System.out.println("Error registering user: " + e.getMessage());
         }
     }
+
+    public int getUserId(Connection conn) {
+        int userId = -1;
+        try {
+            String query = "SELECT id FROM users WHERE username = ?";
+            PreparedStatement stmt = conn.prepareStatement(query);
+            stmt.setString(1, this.username);
+            ResultSet rs = stmt.executeQuery();
+
+            if (rs.next()) {
+                userId = rs.getInt("id");
+            }
+        } catch (SQLException e) {
+            System.out.println("Error fetching user ID: " + e.getMessage());
+        }
+        return userId;
+    }
+
 }
