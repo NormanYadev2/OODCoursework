@@ -64,11 +64,13 @@ public class Main {
                         SystemAdministrator admin = new SystemAdministrator(adminUsername, adminPassword);
                         if (admin.login(conn)) {
                             System.out.println("Admin login successful!");
-                            // Add admin dashboard functionality here if needed
+                            // Redirect to the admin dashboard
+                            SystemAdministrator.adminDashboard(conn);
                         } else {
                             System.out.println("Invalid credentials.");
                         }
                         break;
+
 
                     case 4:
                         System.out.println("Logging out...");
