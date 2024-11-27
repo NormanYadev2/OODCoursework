@@ -24,6 +24,7 @@ public class Main {
             System.out.println("2. Login as User");
             System.out.println("3. Login as System Administrator");
             System.out.println("4. Exit");
+            System.out.println();
             System.out.print("Enter your choice: ");
             try {
                 int choice = Integer.parseInt(scanner.nextLine());

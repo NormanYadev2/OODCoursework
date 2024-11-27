@@ -2,6 +2,8 @@ import java.io.BufferedReader;
 import java.io.FileReader;
 import java.io.IOException;
 import java.sql.*;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Scanner;
 
 public class SystemAdministrator extends Person {
@@ -64,33 +66,89 @@ public class SystemAdministrator extends Person {
     private static void addArticle(Connection conn) {
         System.out.println("Adding article from CSV...");
 
-        // Assume the CSV is in the format: "title, content, category"
-        String csvFilePath = "C:\\Users\\Muralish\\Desktop\\OODCoursework\\MyOODProject\\Articles\\AddArticle.csv"; // Adjust this path
+        // Query to fetch all article titles from the addarticles table
+        String query = "SELECT title FROM addarticles";
 
-        try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
-            String line;
-            while ((line = reader.readLine()) != null) {
-                String[] articleData = line.split(",");
-                String title = articleData[0].trim();
-                String content = articleData[1].trim();
-                String category = articleData[2].trim();
+        try (PreparedStatement pstmt = conn.prepareStatement(query);
+             ResultSet rs = pstmt.executeQuery()) {
 
-                // Insert into the database
-                String query = "INSERT INTO articles (title, content, category) VALUES (?, ?, ?)";
-                try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-                    pstmt.setString(1, title);
-                    pstmt.setString(2, content);
-                    pstmt.setString(3, category);
-                    pstmt.executeUpdate();
-                    System.out.println("Article '" + title + "' added successfully.");
-                } catch (SQLException e) {
-                    System.out.println("Error inserting article: " + e.getMessage());
-                }
+            // Store article titles in a list
+            List<String> articlesList = new ArrayList<>();
+
+            while (rs.next()) {
+                String title = rs.getString("title").trim(); // Get and trim the article title
+                articlesList.add(title);
+                System.out.println("Title: " + title); // Display the title of each article
             }
-        } catch (IOException e) {
-            System.out.println("Error reading CSV file: " + e.getMessage());
+
+            if (articlesList.isEmpty()) {
+                System.out.println("No articles found in the database.");
+                return;
+            }
+
+            // Get the article title choice from the user
+            System.out.print("Enter the title of the article to add: ");
+            String selectedTitle = scanner.nextLine().trim();
+
+            // Check if the selected title exists in the list
+            if (!articlesList.contains(selectedTitle)) {
+                System.out.println("Article not found.");
+                return;
+            }
+
+            // Find the content of the selected article from the addarticles table
+            String contentQuery = "SELECT content FROM addarticles WHERE title = ?";
+            try (PreparedStatement pstmtContent = conn.prepareStatement(contentQuery)) {
+                pstmtContent.setString(1, selectedTitle);
+                try (ResultSet contentRs = pstmtContent.executeQuery()) {
+                    if (contentRs.next()) {
+                        String selectedContent = contentRs.getString("content").trim();
+
+                        // Now, display the available categories for the admin to choose from
+                        String categoryQuery = "SELECT id, name FROM categories ORDER BY id ASC";
+                        try (PreparedStatement pstmtCategory = conn.prepareStatement(categoryQuery);
+                             ResultSet categoryRs = pstmtCategory.executeQuery()) {
+
+                            System.out.println("Select a category for the article:");
+                            while (categoryRs.next()) {
+                                String categoryName = categoryRs.getString("name");
+                                int categoryId = categoryRs.getInt("id");
+                                System.out.println(categoryId + ". " + categoryName); // Display categories
+                            }
+
+                            // Get the selected category number from the admin
+                            System.out.print("Enter category number: ");
+                            int categoryChoice = Integer.parseInt(scanner.nextLine());
+
+                            // Insert the selected article into the articles table, linked with the selected category
+                            String insertQuery = "INSERT INTO articles (title, content, category_id) VALUES (?, ?, ?)";
+                            try (PreparedStatement pstmtInsert = conn.prepareStatement(insertQuery)) {
+                                pstmtInsert.setString(1, selectedTitle);
+                                pstmtInsert.setString(2, selectedContent);
+                                pstmtInsert.setInt(3, categoryChoice); // Linking article with selected category
+                                pstmtInsert.executeUpdate();
+                                System.out.println("Article '" + selectedTitle + "' added successfully to the category.");
+                            } catch (SQLException e) {
+                                System.out.println("Error inserting article: " + e.getMessage());
+                            }
+                        } catch (SQLException e) {
+                            System.out.println("Error fetching categories: " + e.getMessage());
+                        }
+                    }
+                } catch (SQLException e) {
+                    System.out.println("Error fetching article content: " + e.getMessage());
+                }
+            } catch (SQLException e) {
+                System.out.println("Error fetching article content: " + e.getMessage());
+            }
+
+        } catch (SQLException e) {
+            System.out.println("Error fetching articles from the database: " + e.getMessage());
         }
     }
+
+
+
 
     // Delete article by selecting its title
     // Delete article by selecting category and then title
