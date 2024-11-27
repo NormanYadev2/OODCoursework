@@ -34,7 +34,7 @@ public class SystemAdministrator extends Person {
             System.out.println("\nAdministrator Dashboard:");
             System.out.println("1. Add Article");
             System.out.println("2. Delete Article");
-            System.out.println("3. Return to Homepage");
+            System.out.println("3. LogOut");
             System.out.print("Enter your choice: ");
             try {
                 int adminChoice = Integer.parseInt(scanner.nextLine());
@@ -49,6 +49,7 @@ public class SystemAdministrator extends Person {
                         break;
 
                     case 3:
+                        System.out.println("Logging out...");
                         return; // Return to homepage
                     default:
                         System.out.println("Invalid choice. Please try again.");
@@ -64,7 +65,7 @@ public class SystemAdministrator extends Person {
         System.out.println("Adding article from CSV...");
 
         // Assume the CSV is in the format: "title, content, category"
-        String csvFilePath = "path_to_your_csv.csv"; // Adjust this path
+        String csvFilePath = "C:\\Users\\Muralish\\Desktop\\OODCoursework\\MyOODProject\\Articles\\AddArticle.csv"; // Adjust this path
 
         try (BufferedReader reader = new BufferedReader(new FileReader(csvFilePath))) {
             String line;
@@ -92,34 +93,58 @@ public class SystemAdministrator extends Person {
     }
 
     // Delete article by selecting its title
+    // Delete article by selecting category and then title
     private static void deleteArticle(Connection conn) {
-        System.out.print("Enter article title to delete: ");
-        String title = scanner.nextLine().trim();
+        // Step 1: List categories
+        // Fetch and display categories with a custom or default order
+        String categoryQuery = "SELECT id, name FROM categories ORDER BY id ASC"; // or custom order with CASE
+        try (PreparedStatement pstmt = conn.prepareStatement(categoryQuery);
+             ResultSet rs = pstmt.executeQuery()) {
 
-        // Fetch article details
-        String query = "SELECT * FROM articles WHERE title = ?";
-        try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, title);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                if (rs.next()) {
-                    System.out.println("Article found: " + title);
-                    System.out.print("Are you sure you want to delete this article? (y/n): ");
-                    String confirmation = scanner.nextLine().trim().toLowerCase();
-                    if (confirmation.equals("y")) {
-                        // Delete article
-                        String deleteQuery = "DELETE FROM articles WHERE title = ?";
-                        try (PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery)) {
-                            deleteStmt.setString(1, title);
-                            deleteStmt.executeUpdate();
-                            System.out.println("Article '" + title + "' deleted successfully.");
+            System.out.println("Select a category to view articles:");
+            while (rs.next()) {
+                String categoryName = rs.getString("name");
+                int categoryId = rs.getInt("id");
+                System.out.println(categoryId + ". " + categoryName); // Display categories in order
+            }
+
+            // Get the selected category from user input
+            System.out.print("Enter category number: ");
+            int categoryChoice = Integer.parseInt(scanner.nextLine());
+
+            // Fetch and display articles for the selected category
+            String articleQuery = "SELECT id, title FROM articles WHERE category_id = ?";
+            try (PreparedStatement articleStmt = conn.prepareStatement(articleQuery)) {
+                articleStmt.setInt(1, categoryChoice); // Filter by selected category
+                try (ResultSet articleRs = articleStmt.executeQuery()) {
+                    System.out.println("Select an article to delete:");
+                    while (articleRs.next()) {
+                        String title = articleRs.getString("title");
+                        int articleId = articleRs.getInt("id");
+                        System.out.println(articleId + ". " + title);
+                    }
+
+                    // Get the article to delete
+                    System.out.print("Enter article number to delete: ");
+                    int articleChoice = Integer.parseInt(scanner.nextLine());
+
+                    // Delete the selected article
+                    String deleteQuery = "DELETE FROM articles WHERE id = ?";
+                    try (PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery)) {
+                        deleteStmt.setInt(1, articleChoice);
+                        int rowsAffected = deleteStmt.executeUpdate();
+                        if (rowsAffected > 0) {
+                            System.out.println("Article deleted successfully.");
+                        } else {
+                            System.out.println("Error deleting article.");
                         }
                     }
-                } else {
-                    System.out.println("Article not found.");
                 }
             }
         } catch (SQLException e) {
-            System.out.println("Error retrieving article: " + e.getMessage());
+            System.out.println("Error handling categories or articles: " + e.getMessage());
         }
+
+
     }
 }
