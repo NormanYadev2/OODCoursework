@@ -154,8 +154,7 @@ public class SystemAdministrator extends Person {
     // Delete article by selecting category and then title
     private static void deleteArticle(Connection conn) {
         // Step 1: List categories
-        // Fetch and display categories with a custom or default order
-        String categoryQuery = "SELECT id, name FROM categories ORDER BY id ASC"; // or custom order with CASE
+        String categoryQuery = "SELECT id, name FROM categories ORDER BY id ASC";
         try (PreparedStatement pstmt = conn.prepareStatement(categoryQuery);
              ResultSet rs = pstmt.executeQuery()) {
 
@@ -163,30 +162,41 @@ public class SystemAdministrator extends Person {
             while (rs.next()) {
                 String categoryName = rs.getString("name");
                 int categoryId = rs.getInt("id");
-                System.out.println(categoryId + ". " + categoryName); // Display categories in order
+                System.out.println(categoryId + ". " + categoryName); // Display categories
             }
 
             // Get the selected category from user input
             System.out.print("Enter category number: ");
             int categoryChoice = Integer.parseInt(scanner.nextLine());
 
-            // Fetch and display articles for the selected category
+            // Step 2: Fetch and display articles for the selected category
             String articleQuery = "SELECT id, title FROM articles WHERE category_id = ?";
             try (PreparedStatement articleStmt = conn.prepareStatement(articleQuery)) {
                 articleStmt.setInt(1, categoryChoice); // Filter by selected category
                 try (ResultSet articleRs = articleStmt.executeQuery()) {
-                    System.out.println("Select an article to delete:");
+                    // Check if there are articles in the selected category
+                    boolean hasArticles = false;
                     while (articleRs.next()) {
+                        if (!hasArticles) {
+                            System.out.println("Select an article to delete:");
+                            hasArticles = true;
+                        }
                         String title = articleRs.getString("title");
                         int articleId = articleRs.getInt("id");
                         System.out.println(articleId + ". " + title);
                     }
 
-                    // Get the article to delete
+                    // If no articles, handle gracefully
+                    if (!hasArticles) {
+                        System.out.println("No articles found in the selected category.");
+                        return; // Exit method
+                    }
+
+                    // Step 3: Get the article to delete
                     System.out.print("Enter article number to delete: ");
                     int articleChoice = Integer.parseInt(scanner.nextLine());
 
-                    // Delete the selected article
+                    // Step 4: Delete the selected article
                     String deleteQuery = "DELETE FROM articles WHERE id = ?";
                     try (PreparedStatement deleteStmt = conn.prepareStatement(deleteQuery)) {
                         deleteStmt.setInt(1, articleChoice);
@@ -202,7 +212,8 @@ public class SystemAdministrator extends Person {
         } catch (SQLException e) {
             System.out.println("Error handling categories or articles: " + e.getMessage());
         }
-
-
     }
+
+
 }
+
