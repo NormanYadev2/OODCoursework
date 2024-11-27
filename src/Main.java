@@ -23,7 +23,7 @@ public class Main {
             System.out.println("1. Register as User");
             System.out.println("2. Login as User");
             System.out.println("3. Login as System Administrator");
-            System.out.println("4. Logout");
+            System.out.println("4. Exit");
             System.out.print("Enter your choice: ");
             try {
                 int choice = Integer.parseInt(scanner.nextLine());
@@ -93,7 +93,7 @@ public class Main {
             System.out.println("\nUser Dashboard:");
             System.out.println("1. View Articles");
             System.out.println("2. Manage Profile");
-            System.out.println("3. Return to Homepage");
+            System.out.println("3. Logout"); // Replace "Return to Homepage" with "Logout"
             System.out.print("Enter your choice: ");
             try {
                 int userChoice = Integer.parseInt(scanner.nextLine());
@@ -108,9 +108,8 @@ public class Main {
                         break;
 
                     case 3:
-                        System.out.println("Returning to homepage...");
+                        System.out.println("Logging out...");
                         return; // Exit the dashboard loop and return to the main menu
-
                     default:
                         System.out.println("Invalid choice. Please try again.");
                 }
@@ -119,6 +118,7 @@ public class Main {
             }
         }
     }
+
 
     // Close the database connection gracefully
     private static void closeConnection(Connection conn) {
