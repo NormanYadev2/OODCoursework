@@ -1,178 +1,189 @@
 import java.sql.*;
 import java.util.*;
-import java.util.concurrent.*;
 
 public class RecommendationEngine {
 
-    private static final ExecutorService executor = Executors.newFixedThreadPool(10);
+    // Main method to get article recommendations for a user
+    public List<String> recommendArticles(String username, Connection conn) throws SQLException {
+        List<String> recommendations = new ArrayList<>();
 
-    /**
-     * Recommend articles based on user reading history and ratings.
-     *
-     * @param username The username of the user for whom recommendations are generated.
-     * @param conn     The database connection.
-     * @return List of recommended article titles.
-     */
-    public List<String> recommendArticles(String username, Connection conn) {
-        List<String> recommendedArticles = new ArrayList<>();
+        // Retrieve user ID based on username
+        String query = "SELECT id FROM users WHERE username = ?";
+        try (PreparedStatement stmt = conn.prepareStatement(query)) {
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            if (rs.next()) {
+                int userId = rs.getInt("id");
 
-        try {
-            // Fetch user's viewed and rated articles
-            Map<Integer, Integer> userRatings = fetchUserRatings(username, conn);
-            if (userRatings.isEmpty()) {
-                System.out.println("No rating or viewing history found for user. Providing default recommendations.");
-                return fetchDefaultRecommendations(conn);
+                // Fetch recommendations based on the user ID
+                List<Map<String, String>> recommendedArticles = getRecommendations(userId, username, conn);
+
+                // Convert recommendations to a list of article titles
+                for (Map<String, String> article : recommendedArticles) {
+                    recommendations.add(article.get("title"));
+                }
             }
-
-            // Fetch similar articles based on collaborative filtering
-            Set<Integer> similarArticles = findSimilarArticles(userRatings, conn);
-
-            // Fetch additional recommendations using content-based filtering
-            Set<Integer> contentBasedArticles = fetchContentBasedRecommendations(userRatings, conn);
-
-            // Combine and filter results
-            Set<Integer> finalRecommendations = new HashSet<>(similarArticles);
-            finalRecommendations.addAll(contentBasedArticles);
-
-            // Fetch article titles for the recommendations
-            recommendedArticles = fetchArticleTitles(finalRecommendations, conn);
-
-        } catch (SQLException e) {
-            System.out.println("Error generating recommendations: " + e.getMessage());
         }
 
-        return recommendedArticles;
+        return recommendations;
     }
 
-    /**
-     * Fetch user's rated articles with their ratings.
-     */
-    private Map<Integer, Integer> fetchUserRatings(String username, Connection conn) throws SQLException {
-        String query = "SELECT av.article_id, av.rating " +
-                "FROM article_views av WHERE av.username = ? AND av.rating IS NOT NULL";
+    // Logic to get recommendations based on the user's reading history
+    private List<Map<String, String>> getRecommendations(int userId, String username, Connection conn) {
+        List<Map<String, String>> recommendations = new ArrayList<>();
+        try {
+            // Step 1: Get the articles viewed by the user
+            List<Map<String, String>> viewedArticles = getViewedArticles(conn, username);
 
-        Map<Integer, Integer> userRatings = new HashMap<>();
+            if (!viewedArticles.isEmpty()) {
+                // Check if the user has rated articles
+                if (hasRatedArticles(conn, username)) {
+                    // Recommendations based on rated articles
+                    recommendations = getRecommendationsBasedOnRatedArticles(conn, username);
+                } else {
+                    // Recommend articles from the same categories as viewed
+                    recommendations = getRecommendationsByCategory(conn, viewedArticles);
+                }
+            } else {
+                // Provide default recommendations
+                recommendations = getDefaultRecommendations(conn);
+            }
+        } catch (SQLException e) {
+            System.err.println("Error fetching recommendations: " + e.getMessage());
+        }
+        return recommendations;
+    }
+
+    // Get recommendations based on the user's article ratings
+    private List<Map<String, String>> getRecommendationsBasedOnRatedArticles(Connection conn, String username) throws SQLException {
+        String query = """
+                SELECT a.id, a.title, a.category_id, av.rating
+                FROM articles a
+                JOIN article_views av ON a.id = av.article_id
+                WHERE av.username = ?
+                AND av.rating IS NOT NULL
+                ORDER BY av.rating DESC, av.view_date DESC;
+            """;
+
+        List<Map<String, String>> recommendations = new ArrayList<>();
+        Set<Integer> ratedCategories = new HashSet<>();
 
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
             stmt.setString(1, username);
-            try (ResultSet rs = stmt.executeQuery()) {
-                while (rs.next()) {
-                    int articleId = rs.getInt("article_id");
-                    int rating = rs.getInt("rating");
-                    userRatings.put(articleId, rating);
-                }
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Map<String, String> article = new HashMap<>();
+                article.put("id", String.valueOf(rs.getInt("id")));
+                article.put("title", rs.getString("title"));
+                article.put("category_id", String.valueOf(rs.getInt("category_id")));
+                recommendations.add(article);
+
+                ratedCategories.add(rs.getInt("category_id"));
             }
         }
 
-        return userRatings;
+        // Add more recommendations from rated categories
+        if (!ratedCategories.isEmpty()) {
+            recommendations.addAll(getArticlesFromCategories(conn, ratedCategories));
+        }
+
+        return recommendations;
     }
 
-    /**
-     * Find similar articles using collaborative filtering.
-     */
-    private Set<Integer> findSimilarArticles(Map<Integer, Integer> userRatings, Connection conn) throws SQLException {
-        Set<Integer> similarArticles = new HashSet<>();
+    // Fetch articles from specific categories
+    private List<Map<String, String>> getArticlesFromCategories(Connection conn, Set<Integer> categoryIds) throws SQLException {
+        StringBuilder query = new StringBuilder("SELECT id, title, category_id FROM articles WHERE category_id IN (");
+        for (Integer id : categoryIds) {
+            query.append(id).append(",");
+        }
+        query.deleteCharAt(query.length() - 1).append(")");
 
-        // Query to fetch articles rated similarly by other users
-        String query = "SELECT av2.article_id " +
-                "FROM article_views av1 " +
-                "JOIN article_views av2 ON av1.username != av2.username " +
-                "WHERE av1.article_id = ? AND av1.rating = av2.rating";
+        List<Map<String, String>> articles = new ArrayList<>();
+        try (Statement stmt = conn.createStatement();
+             ResultSet rs = stmt.executeQuery(query.toString())) {
+            while (rs.next()) {
+                Map<String, String> article = new HashMap<>();
+                article.put("id", String.valueOf(rs.getInt("id")));
+                article.put("title", rs.getString("title"));
+                article.put("category_id", String.valueOf(rs.getInt("category_id")));
+                articles.add(article);
+            }
+        }
 
+        return articles;
+    }
+
+    // Check if the user has rated any articles
+    private boolean hasRatedArticles(Connection conn, String username) throws SQLException {
+        String query = "SELECT 1 FROM article_views WHERE username = ? AND rating IS NOT NULL LIMIT 1";
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            for (int articleId : userRatings.keySet()) {
-                stmt.setInt(1, articleId);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        int similarArticleId = rs.getInt("article_id");
-                        if (!userRatings.containsKey(similarArticleId)) {
-                            similarArticles.add(similarArticleId);
-                        }
-                    }
-                }
-            }
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+            return rs.next();
         }
-
-        return similarArticles;
     }
 
-    /**
-     * Fetch additional recommendations using content-based filtering.
-     */
-    private Set<Integer> fetchContentBasedRecommendations(Map<Integer, Integer> userRatings, Connection conn) throws SQLException {
-        Set<Integer> recommendedArticles = new HashSet<>();
+    // Fetch the articles viewed by the user
+    private List<Map<String, String>> getViewedArticles(Connection conn, String username) throws SQLException {
+        String query = """
+                SELECT av.article_id, a.category_id
+                FROM article_views av
+                JOIN articles a ON av.article_id = a.id
+                WHERE av.username = ?
+                """;
 
-        // Query to fetch articles from similar categories
-        String query = "SELECT a.id FROM articles a " +
-                "JOIN categories c ON a.category_id = c.id " +
-                "WHERE c.id IN (SELECT DISTINCT category_id " +
-                "               FROM articles WHERE id = ?) " +
-                "AND a.id NOT IN (SELECT article_id FROM article_views WHERE username = ?)";
-
+        List<Map<String, String>> articles = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            for (int articleId : userRatings.keySet()) {
-                stmt.setInt(1, articleId);
-                stmt.setString(2, userRatings.get(articleId).toString());
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        recommendedArticles.add(rs.getInt("id"));
-                    }
-                }
+            stmt.setString(1, username);
+            ResultSet rs = stmt.executeQuery();
+
+            while (rs.next()) {
+                Map<String, String> article = new HashMap<>();
+                article.put("article_id", String.valueOf(rs.getInt("article_id")));
+                article.put("category_id", String.valueOf(rs.getInt("category_id")));
+                articles.add(article);
             }
         }
 
-        return recommendedArticles;
+        return articles;
     }
 
-    /**
-     * Fetch default recommendations for users without history.
-     */
-    private List<String> fetchDefaultRecommendations(Connection conn) throws SQLException {
-        List<String> defaultRecommendations = new ArrayList<>();
-        String query = "SELECT title FROM articles ORDER BY RAND() LIMIT 5";
+    // Fetch default recommendations (one article per category)
+    private List<Map<String, String>> getDefaultRecommendations(Connection conn) throws SQLException {
+        String query = """
+                SELECT a.id, a.title, a.category_id
+                FROM articles a
+                INNER JOIN (
+                    SELECT category_id, MIN(id) AS min_id
+                    FROM articles
+                    GROUP BY category_id
+                ) grouped_articles
+                ON a.category_id = grouped_articles.category_id AND a.id = grouped_articles.min_id
+                """;
 
+        List<Map<String, String>> recommendations = new ArrayList<>();
         try (Statement stmt = conn.createStatement();
              ResultSet rs = stmt.executeQuery(query)) {
             while (rs.next()) {
-                defaultRecommendations.add(rs.getString("title"));
+                Map<String, String> article = new HashMap<>();
+                article.put("id", String.valueOf(rs.getInt("id")));
+                article.put("title", rs.getString("title"));
+                article.put("category_id", String.valueOf(rs.getInt("category_id")));
+                recommendations.add(article);
             }
         }
 
-        return defaultRecommendations;
+        return recommendations;
     }
 
-    /**
-     * Fetch article titles for a set of article IDs.
-     */
-    private List<String> fetchArticleTitles(Set<Integer> articleIds, Connection conn) throws SQLException {
-        List<String> titles = new ArrayList<>();
-        String query = "SELECT title FROM articles WHERE id = ?";
-
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            for (int articleId : articleIds) {
-                stmt.setInt(1, articleId);
-                try (ResultSet rs = stmt.executeQuery()) {
-                    while (rs.next()) {
-                        titles.add(rs.getString("title"));
-                    }
-                }
-            }
+    // Fetch recommendations based on categories of viewed articles
+    private List<Map<String, String>> getRecommendationsByCategory(Connection conn, List<Map<String, String>> viewedArticles) throws SQLException {
+        Set<Integer> categoryIds = new HashSet<>();
+        for (Map<String, String> article : viewedArticles) {
+            categoryIds.add(Integer.parseInt(article.get("category_id")));
         }
 
-        return titles;
-    }
-
-    /**
-     * Shutdown the executor service gracefully.
-     */
-    public static void shutdownExecutor() {
-        executor.shutdown();
-        try {
-            if (!executor.awaitTermination(60, TimeUnit.SECONDS)) {
-                executor.shutdownNow();
-            }
-        } catch (InterruptedException e) {
-            executor.shutdownNow();
-        }
+        return getArticlesFromCategories(conn, categoryIds);
     }
 }
