@@ -1,9 +1,11 @@
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.*;
 
 public class RecommendationEngine {
 
-    private Scanner scanner = new Scanner(System.in);
+    private final Scanner scanner = new Scanner(System.in);
+    private final ExecutorService executorService = Executors.newCachedThreadPool();
 
     // Main method to get article recommendations for a user
     public List<String> recommendArticles(String username, Connection conn) throws SQLException {
@@ -17,8 +19,9 @@ public class RecommendationEngine {
             if (rs.next()) {
                 int userId = rs.getInt("id");
 
-                // Fetch recommendations based on the user ID
-                List<Map<String, String>> recommendedArticles = getRecommendations(userId, conn);
+                // Fetch recommendations concurrently
+                Future<List<Map<String, String>>> recommendationsFuture = executorService.submit(() -> getRecommendations(userId, conn));
+                List<Map<String, String>> recommendedArticles = recommendationsFuture.get(); // Wait for completion
 
                 // Display recommendations to the user
                 if (!recommendedArticles.isEmpty()) {
@@ -36,23 +39,50 @@ public class RecommendationEngine {
                     System.out.println(" ");
                 }
             }
+        } catch (InterruptedException | ExecutionException e) {
+            System.err.println("Error fetching recommendations: " + e.getMessage());
         }
 
         return recommendations;
     }
 
-    // Get recommendations for the user
-    // Get recommendations for the user
+    // Concurrent method to get recommendations for the user
     private List<Map<String, String>> getRecommendations(int userId, Connection conn) throws SQLException {
-        // Step 1: Get average ratings for categories
+        Map<Integer, Double> ratedCategories = fetchRatedCategories(userId, conn);
+        List<Integer> recentCategoryIds = fetchRecentCategories(userId, conn, ratedCategories);
+
+        // Combine rated and recent categories
+        List<Integer> prioritizedCategoryIds = new ArrayList<>(ratedCategories.keySet());
+        prioritizedCategoryIds.addAll(recentCategoryIds);
+
+        // Fetch articles concurrently
+        List<Future<List<Map<String, String>>>> articleFetchFutures = new ArrayList<>();
+        for (Integer categoryId : prioritizedCategoryIds) {
+            articleFetchFutures.add(executorService.submit(() -> fetchArticlesByCategory(categoryId, conn)));
+        }
+
+        List<Map<String, String>> recommendations = new ArrayList<>();
+        for (Future<List<Map<String, String>>> future : articleFetchFutures) {
+            try {
+                recommendations.addAll(future.get());
+            } catch (InterruptedException | ExecutionException e) {
+                System.err.println("Error fetching articles: " + e.getMessage());
+            }
+        }
+
+        return recommendations;
+    }
+
+    // Fetch rated categories and their average ratings
+    private Map<Integer, Double> fetchRatedCategories(int userId, Connection conn) throws SQLException {
         String categoryRatingQuery = """
-        SELECT a.category_id, AVG(av.rating) AS avg_rating
-        FROM articles a
-        JOIN article_views av ON a.id = av.article_id
-        WHERE av.user_id = ? AND av.rating IS NOT NULL
-        GROUP BY a.category_id
-        ORDER BY avg_rating DESC;
-    """;
+            SELECT a.category_id, AVG(av.rating) AS avg_rating
+            FROM articles a
+            JOIN article_views av ON a.id = av.article_id
+            WHERE av.user_id = ? AND av.rating IS NOT NULL
+            GROUP BY a.category_id
+            ORDER BY avg_rating DESC;
+        """;
 
         Map<Integer, Double> ratedCategories = new LinkedHashMap<>();
         try (PreparedStatement stmt = conn.prepareStatement(categoryRatingQuery)) {
@@ -62,16 +92,19 @@ public class RecommendationEngine {
                 ratedCategories.put(rs.getInt("category_id"), rs.getDouble("avg_rating"));
             }
         }
+        return ratedCategories;
+    }
 
-        // Step 2: Get recently viewed categories (not rated)
+    // Fetch recently viewed but unrated categories
+    private List<Integer> fetchRecentCategories(int userId, Connection conn, Map<Integer, Double> ratedCategories) throws SQLException {
         String categoryViewQuery = """
-        SELECT DISTINCT a.category_id, MAX(av.view_date) AS last_viewed
-        FROM articles a
-        JOIN article_views av ON a.id = av.article_id
-        WHERE av.user_id = ? AND av.rating IS NULL
-        GROUP BY a.category_id
-        ORDER BY last_viewed DESC;
-    """;
+            SELECT DISTINCT a.category_id, MAX(av.view_date) AS last_viewed
+            FROM articles a
+            JOIN article_views av ON a.id = av.article_id
+            WHERE av.user_id = ? AND av.rating IS NULL
+            GROUP BY a.category_id
+            ORDER BY last_viewed DESC;
+        """;
 
         List<Integer> recentCategoryIds = new ArrayList<>();
         try (PreparedStatement stmt = conn.prepareStatement(categoryViewQuery)) {
@@ -79,46 +112,39 @@ public class RecommendationEngine {
             ResultSet rs = stmt.executeQuery();
             while (rs.next()) {
                 int categoryId = rs.getInt("category_id");
-                // Include only if not already in rated categories
                 if (!ratedCategories.containsKey(categoryId)) {
                     recentCategoryIds.add(categoryId);
                 }
             }
         }
+        return recentCategoryIds;
+    }
 
-        // Combine rated categories (priority) and recent categories
-        List<Integer> prioritizedCategoryIds = new ArrayList<>(ratedCategories.keySet());
-        prioritizedCategoryIds.addAll(recentCategoryIds);
-
-        // Step 3: Fetch articles from these categories in order
-        List<Map<String, String>> recommendations = new ArrayList<>();
-        for (Integer categoryId : prioritizedCategoryIds) {
-            String articlesQuery = """
+    // Fetch articles for a given category
+    private List<Map<String, String>> fetchArticlesByCategory(int categoryId, Connection conn) throws SQLException {
+        String articlesQuery = """
             SELECT id, title, category_id
             FROM articles
             WHERE category_id = ?
             ORDER BY id;
         """;
 
-            try (PreparedStatement stmt = conn.prepareStatement(articlesQuery)) {
-                stmt.setInt(1, categoryId);
-                ResultSet rs = stmt.executeQuery();
-
-                while (rs.next()) {
-                    Map<String, String> article = new HashMap<>();
-                    article.put("id", String.valueOf(rs.getInt("id")));
-                    article.put("title", rs.getString("title"));
-                    article.put("category_id", String.valueOf(rs.getInt("category_id")));
-                    recommendations.add(article);
-                }
+        List<Map<String, String>> articles = new ArrayList<>();
+        try (PreparedStatement stmt = conn.prepareStatement(articlesQuery)) {
+            stmt.setInt(1, categoryId);
+            ResultSet rs = stmt.executeQuery();
+            while (rs.next()) {
+                Map<String, String> article = new HashMap<>();
+                article.put("id", String.valueOf(rs.getInt("id")));
+                article.put("title", rs.getString("title"));
+                article.put("category_id", String.valueOf(rs.getInt("category_id")));
+                articles.add(article);
             }
         }
-
-        return recommendations;
+        return articles;
     }
 
-
-    // Prompt the user to view articles or return to the dashboard
+    // Handle article selection with rating and viewing
     private void handleArticleSelection(List<Map<String, String>> recommendedArticles, Connection conn) throws SQLException {
         System.out.println("Do you wish to view any of these articles? (yes/no)");
         String response = scanner.nextLine();
@@ -136,37 +162,26 @@ public class RecommendationEngine {
                     System.out.println("Would you like to rate this article? (yes/no)");
                     response = scanner.nextLine();
 
-                    if ("no".equalsIgnoreCase(response)) {
-                        // Continue showing other recommendations if user doesn't want to rate
-                        System.out.println("No rating given. Continuing to other articles...");
-                        break;
+                    if ("yes".equalsIgnoreCase(response)) {
+                        System.out.println("Please rate the article (1 to 5):");
+                        int rating = scanner.nextInt();
+                        scanner.nextLine(); // Consume newline
+                        updateArticleRating(conn, selectedArticle.get("id"), rating);
                     }
-
-                    // If 'yes', we proceed with rating (if needed)
-                    System.out.println("Please rate the article (1 to 5):");
-                    int rating = scanner.nextInt();
-                    scanner.nextLine(); // Consume newline
-
-                    // Update the rating in the database
-                    updateArticleRating(conn, selectedArticle.get("id"), rating);
 
                     System.out.println("Would you like to see another article? (yes/no)");
                     response = scanner.nextLine();
-
                     if (!"yes".equalsIgnoreCase(response)) {
-                        System.out.println("Returning to the dashboard...");
                         break;
                     }
                 } else {
                     System.out.println("Invalid choice. Try again.");
                 }
             }
-        } else {
-            System.out.println("Returning to the dashboard...");
         }
     }
 
-    // Display the content of the selected article
+    // Display article content
     private void displayArticleContent(int articleId, Connection conn) {
         String query = "SELECT content FROM articles WHERE id = ?";
         try (PreparedStatement stmt = conn.prepareStatement(query)) {
@@ -190,6 +205,18 @@ public class RecommendationEngine {
             stmt.setInt(1, rating);
             stmt.setString(2, articleId);
             stmt.executeUpdate();
+        }
+    }
+
+    // Shutdown the executor service
+    public void shutdown() {
+        executorService.shutdown();
+        try {
+            if (!executorService.awaitTermination(5, TimeUnit.SECONDS)) {
+                executorService.shutdownNow();
+            }
+        } catch (InterruptedException e) {
+            executorService.shutdownNow();
         }
     }
 }
