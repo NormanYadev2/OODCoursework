@@ -217,24 +217,5 @@ public class ArticleManager {
         }
         return categoryId;
     }
-    // Adjusted method name to make it clearer
-    // Adjusted method name to make it clearer
-    public static String getCategoryNameById(Connection conn, int categoryId) {
-        String query = "SELECT name FROM categories WHERE id = ?";
-        String categoryName = null;
-
-        try (PreparedStatement stmt = conn.prepareStatement(query)) {
-            stmt.setInt(1, categoryId);
-            try (ResultSet rs = stmt.executeQuery()) {
-                if (rs.next()) {
-                    categoryName = rs.getString("name");
-                }
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-        return categoryName;
-    }
-
 
 }
