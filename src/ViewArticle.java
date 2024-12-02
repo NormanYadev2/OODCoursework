@@ -36,48 +36,58 @@ public class ViewArticle {
             System.out.println((i + 1) + ") " + articles.get(i).get("title"));
         }
 
-        try {
-            System.out.print("Enter the number of the article to view: ");
-            int articleChoice = Integer.parseInt(scanner.nextLine());
+        int articleChoice = -1;
+        while (articleChoice < 1 || articleChoice > articles.size()) {
+            try {
+                System.out.print("Enter the number of the article to view: ");
+                articleChoice = Integer.parseInt(scanner.nextLine());
 
-            if (articleChoice < 1 || articleChoice > articles.size()) {
-                System.out.println("Invalid choice. Please try again.");
-                return;
+                if (articleChoice < 1 || articleChoice > articles.size()) {
+                    System.out.println("Invalid choice. Please try again.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a valid number.");
             }
-
-            Map<String, String> selectedArticle = articles.get(articleChoice - 1);
-            int articleId = Integer.parseInt(selectedArticle.get("id"));
-            System.out.println("\n--- Article Content ---");
-            System.out.println(selectedArticle.get("content"));
-
-            // Record the article view with the userId and username
-            int viewId = ArticleManager.recordArticleView(conn, articleId, userId, username);
-
-            // Optionally rate the article
-            promptArticleRating(conn, viewId);
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid input. Please enter a valid number.");
         }
+
+        Map<String, String> selectedArticle = articles.get(articleChoice - 1);
+        int articleId = Integer.parseInt(selectedArticle.get("id"));
+        System.out.println("\n--- Article Content ---");
+        System.out.println(selectedArticle.get("content"));
+
+        // Record the article view with the userId and username
+        int viewId = ArticleManager.recordArticleView(conn, articleId, userId, username);
+
+        // Optionally rate the article
+        promptArticleRating(conn, viewId);
     }
 
     // Prompt the user to rate the article
     private static void promptArticleRating(Connection conn, int viewId) {
-        System.out.print("\nWould you like to rate this article? (yes/no): ");
-        String response = scanner.nextLine().trim().toLowerCase();
+        String response = "";
+        while (!response.equals("yes") && !response.equals("no")) {
+            System.out.print("\nWould you like to rate this article? (yes/no): ");
+            response = scanner.nextLine().trim().toLowerCase();
 
-        if (response.equals("yes")) {
-            System.out.print("Rate the article out of 5: ");
-            try {
-                int rating = Integer.parseInt(scanner.nextLine());
+            if (response.equals("yes")) {
+                int rating = -1;
+                while (rating < 1 || rating > 5) {
+                    try {
+                        System.out.print("Rate the article out of 5: ");
+                        rating = Integer.parseInt(scanner.nextLine());
 
-                if (rating < 1 || rating > 5) {
-                    System.out.println("Invalid rating. Please enter a number between 1 and 5.");
-                } else {
-                    ArticleManager.updateArticleRating(conn, viewId, rating);
-                    System.out.println("Thank you for your feedback!");
+                        if (rating < 1 || rating > 5) {
+                            System.out.println("Invalid rating. Please enter a number between 1 and 5.");
+                        } else {
+                            ArticleManager.updateArticleRating(conn, viewId, rating);
+                            System.out.println("Thank you for your feedback!");
+                        }
+                    } catch (NumberFormatException e) {
+                        System.out.println("Invalid input. Please enter a number between 1 and 5.");
+                    }
                 }
-            } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Please enter a number between 1 and 5.");
+            } else if (!response.equals("no")) {
+                System.out.println("Invalid input. Please enter 'yes' or 'no'.");
             }
         }
     }
@@ -87,22 +97,24 @@ public class ViewArticle {
         // Display categories for user selection
         displayCategories(conn);
 
-        System.out.print("\nEnter the number of the category: ");
-        try {
-            int categoryChoice = Integer.parseInt(scanner.nextLine());
+        int categoryChoice = -1;
+        List<String> categories = ArticleManager.getCategories(conn);
+        while (categoryChoice < 1 || categoryChoice > categories.size()) {
+            try {
+                System.out.print("\nEnter the number of the category: ");
+                categoryChoice = Integer.parseInt(scanner.nextLine());
 
-            // Validate category selection
-            List<String> categories = ArticleManager.getCategories(conn);
-            if (categories.isEmpty() || categoryChoice < 1 || categoryChoice > categories.size()) {
-                System.out.println("Invalid category choice. Please try again.");
-                return;
+                // Validate category selection
+                if (categoryChoice < 1 || categoryChoice > categories.size()) {
+                    System.out.println("Invalid category choice. Please try again.");
+                }
+            } catch (NumberFormatException e) {
+                System.out.println("Invalid input. Please enter a valid number.");
             }
-
-            // Retrieve the category ID and display articles
-            int selectedCategoryId = ArticleManager.getCategoryIdByName(conn, categories.get(categoryChoice - 1));
-            displayArticlesByCategory(conn, selectedCategoryId, userId, username);
-        } catch (NumberFormatException e) {
-            System.out.println("Invalid input. Please enter a valid number.");
         }
+
+        // Retrieve the category ID and display articles
+        int selectedCategoryId = ArticleManager.getCategoryIdByName(conn, categories.get(categoryChoice - 1));
+        displayArticlesByCategory(conn, selectedCategoryId, userId, username);
     }
 }
