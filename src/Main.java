@@ -31,14 +31,34 @@ public class Main {
 
                 switch (choice) {
                     case 1:
-                        System.out.print("Enter username: ");
-                        String username = scanner.nextLine();
-                        System.out.print("Enter password: ");
-                        String password = scanner.nextLine();
-                        User.register(username, password, conn);
+                        // User registration
+                        String username;
+                        while (true) {
+                            System.out.print("Enter username: ");
+                            username = scanner.nextLine();
+                            if (username.trim().isEmpty()) {
+                                System.out.println("Error: Username cannot be empty. Please try again.");
+                            } else {
+                                break; // Exit the loop if username is valid
+                            }
+                        }
+
+                        String password;
+                        while (true) {
+                            System.out.print("Enter password: ");
+                            password = scanner.nextLine();
+                            if (password.trim().isEmpty()) {
+                                System.out.println("Error: Password cannot be empty. Please try again.");
+                            } else {
+                                break; // Exit the loop if password is valid
+                            }
+                        }
+
+                        User.register(username, password, conn); // Call the register method
                         break;
 
                     case 2:
+                        // User login
                         System.out.print("Enter username: ");
                         String userUsername = scanner.nextLine();
                         System.out.print("Enter password: ");
@@ -58,6 +78,7 @@ public class Main {
                         break;
 
                     case 3:
+                        // Admin login
                         System.out.print("Enter admin username: ");
                         String adminUsername = scanner.nextLine();
                         System.out.print("Enter admin password: ");
@@ -73,7 +94,8 @@ public class Main {
                         break;
 
                     case 4:
-                        System.out.println("Logging out...");
+                        // Exit the application
+                        System.out.println("Exiting...");
                         closeConnection(conn); // Close the connection when logging out
                         scanner.close(); // Close the scanner when exiting the program
                         return; // Exit the main loop
@@ -82,7 +104,7 @@ public class Main {
                         System.out.println("Invalid choice. Please try again.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Please enter a number.");
+                System.out.println("Invalid input. Please enter a valid number.");
             }
         }
     }
@@ -116,17 +138,28 @@ public class Main {
                     case 3:
                         // Get article recommendations functionality
                         System.out.println("Fetching your article recommendations...");
-                        List<String> recommendations = recommendationEngine.recommendArticles(username, conn);
+                        try {
+                            // Call the recommendation engine to fetch the list of recommended articles
+                            List<String> recommendations = recommendationEngine.recommendArticles(username, conn);
 
-                        if (recommendations.isEmpty()) {
-                            System.out.println("No recommendations available. Try viewing or rating articles first.");
-                        } else {
-                            System.out.println("Recommended Articles:");
-                            for (String article : recommendations) {
-                                System.out.println("- " + article);
+                            // Check if recommendations are empty or null and handle appropriately
+                            if (recommendations == null || recommendations.isEmpty()) {
+                                System.out.println("No recommendations available. Try viewing or rating articles first.");
+                            } else {
+                                System.out.println("Recommended Articles:");
+                                for (String article : recommendations) {
+                                    System.out.println("- " + article);
+                                }
                             }
+                        } catch (SQLException e) {
+                            // Handle any database-related issues
+                            System.out.println("Error fetching recommendations: " + e.getMessage());
+                        } catch (Exception e) {
+                            // Handle any other unexpected errors
+                            System.out.println("An error occurred while fetching recommendations: " + e.getMessage());
                         }
                         break;
+
 
                     case 4:
                         // Logout functionality
@@ -137,9 +170,7 @@ public class Main {
                         System.out.println("Invalid choice. Please try again.");
                 }
             } catch (NumberFormatException e) {
-                System.out.println("Invalid input. Please enter a number.");
-            } catch (SQLException e) {
-                System.out.println("Database error: " + e.getMessage());
+                System.out.println("Invalid input. Please enter a valid number.");
             }
         }
     }
