@@ -21,10 +21,12 @@ public class Main {
         // Main loop for menu navigation
         while (true) {
             System.out.println("\nMain Menu:");
+            System.out.println();
             System.out.println("1. Register as User");
             System.out.println("2. Login as User");
             System.out.println("3. Login as System Administrator");
             System.out.println("4. Exit");
+            System.out.println();
             System.out.print("Enter your choice: ");
             try {
                 int choice = Integer.parseInt(scanner.nextLine());
@@ -119,7 +121,9 @@ public class Main {
             System.out.println("2. Manage Profile");
             System.out.println("3. Get Recommendations"); // New option for recommendations
             System.out.println("4. Logout");
+            System.out.println();
             System.out.print("Enter your choice: ");
+
 
             try {
                 int userChoice = Integer.parseInt(scanner.nextLine());
