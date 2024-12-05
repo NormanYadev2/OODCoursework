@@ -15,8 +15,10 @@ public class ViewArticle {
             System.out.println("No categories available at the moment.");
             return;
         }
+        System.out.println();
 
         System.out.println("Available categories:");
+        System.out.println();
         for (int i = 0; i < categories.size(); i++) {
             System.out.println((i + 1) + ") " + categories.get(i));
         }
@@ -32,6 +34,7 @@ public class ViewArticle {
         }
 
         System.out.println("Articles in the selected category:");
+        System.out.println();
         for (int i = 0; i < articles.size(); i++) {
             System.out.println((i + 1) + ") " + articles.get(i).get("title"));
         }
@@ -39,14 +42,18 @@ public class ViewArticle {
         int articleChoice = -1;
         while (articleChoice < 1 || articleChoice > articles.size()) {
             try {
+                System.out.println();
                 System.out.print("Enter the number of the article to view: ");
+                System.out.println();
                 articleChoice = Integer.parseInt(scanner.nextLine());
 
                 if (articleChoice < 1 || articleChoice > articles.size()) {
                     System.out.println("Invalid choice. Please try again.");
+
                 }
             } catch (NumberFormatException e) {
                 System.out.println("Invalid input. Please enter a valid number.");
+                System.out.println();
             }
         }
 
