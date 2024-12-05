@@ -12,21 +12,16 @@ public class SystemAdministrator extends Person {
         super(username, password);
     }
 
+
+
+
     // Login implementation for Admin
     @Override
     public boolean login(Connection conn) {
-        String query = "SELECT * FROM admins WHERE username = ? AND password = ?";
-        try (PreparedStatement pstmt = conn.prepareStatement(query)) {
-            pstmt.setString(1, this.username);
-            pstmt.setString(2, this.password);
-            try (ResultSet rs = pstmt.executeQuery()) {
-                return rs.next();
-            }
-        } catch (SQLException e) {
-            e.printStackTrace();
-            return false;
-        }
+        return "admin".equals(this.username) && "admin123".equals(this.password);
     }
+
+
 
     // Admin dashboard where they can add or delete articles
     public static void adminDashboard(Connection conn) {
@@ -148,7 +143,7 @@ public class SystemAdministrator extends Person {
 
 
 
-    // Delete article by selecting its title
+
     // Delete article by selecting category and then title
     private static void deleteArticle(Connection conn) {
         // Step 1: List categories
