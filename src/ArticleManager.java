@@ -1,7 +1,11 @@
 import java.sql.*;
 import java.util.*;
+import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
 public class ArticleManager {
+
 
     // Define category keywords for NLP-based categorization
     public static String categorizeArticle(String title, String content) {
@@ -71,59 +75,73 @@ public class ArticleManager {
         try (PreparedStatement getArticlesStmt = conn.prepareStatement(getUncategorizedArticlesQuery);
              ResultSet articlesRs = getArticlesStmt.executeQuery()) {
 
+            ExecutorService executor = Executors.newFixedThreadPool(10);  // Limit the number of threads
+
             while (articlesRs.next()) {
                 int articleId = articlesRs.getInt("id");
                 String title = articlesRs.getString("title");
                 String content = articlesRs.getString("content");
 
-                // Categorize the article
-                String category = categorizeArticle(title, content);
+                // Submit the categorization task to the executor
+                executor.submit(() -> {
+                    String category = categorizeArticle(title, content);
 
-                // Get or create the category ID
-                int categoryId = getOrCreateCategoryId(conn, category);
+                    // Get or create the category ID
+                    int categoryId = getOrCreateCategoryId(conn, category);
 
-                // Update the article's category
-                try (PreparedStatement updateStmt = conn.prepareStatement(updateArticleCategoryQuery)) {
-                    updateStmt.setInt(1, categoryId);
-                    updateStmt.setInt(2, articleId);
-                    updateStmt.executeUpdate();
-                }
+                    // Update the article's category
+                    try (PreparedStatement updateStmt = conn.prepareStatement(updateArticleCategoryQuery)) {
+                        updateStmt.setInt(1, categoryId);
+                        updateStmt.setInt(2, articleId);
+                        updateStmt.executeUpdate();
+                    } catch (SQLException e) {
+                        e.printStackTrace();
+                    }
+                });
             }
+
+            executor.shutdown(); // Properly shut down the executor service
+
         } catch (SQLException e) {
             e.printStackTrace();
         }
     }
 
+
     // Ensure a category exists in the database or create it
+    private static final Map<String, Integer> categoryCache = new ConcurrentHashMap<>();
+
     public static int getOrCreateCategoryId(Connection conn, String categoryName) {
-        int categoryId = -1;
+        return categoryCache.computeIfAbsent(categoryName, category -> {
+            // Database query to get or create the category
+            int categoryId = -1;
+            String checkCategoryQuery = "SELECT id FROM categories WHERE name = ?";
+            String insertCategoryQuery = "INSERT INTO categories (name) VALUES (?)";
 
-        String checkCategoryQuery = "SELECT id FROM categories WHERE name = ?";
-        String insertCategoryQuery = "INSERT INTO categories (name) VALUES (?)";
-
-        try (PreparedStatement checkStmt = conn.prepareStatement(checkCategoryQuery)) {
-            checkStmt.setString(1, categoryName);
-            try (ResultSet rs = checkStmt.executeQuery()) {
-                if (rs.next()) {
-                    categoryId = rs.getInt("id");
-                } else {
-                    try (PreparedStatement insertStmt = conn.prepareStatement(insertCategoryQuery, Statement.RETURN_GENERATED_KEYS)) {
-                        insertStmt.setString(1, categoryName);
-                        insertStmt.executeUpdate();
-                        try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
-                            if (generatedKeys.next()) {
-                                categoryId = generatedKeys.getInt(1);
+            try (PreparedStatement checkStmt = conn.prepareStatement(checkCategoryQuery)) {
+                checkStmt.setString(1, categoryName);
+                try (ResultSet rs = checkStmt.executeQuery()) {
+                    if (rs.next()) {
+                        categoryId = rs.getInt("id");
+                    } else {
+                        try (PreparedStatement insertStmt = conn.prepareStatement(insertCategoryQuery, Statement.RETURN_GENERATED_KEYS)) {
+                            insertStmt.setString(1, categoryName);
+                            insertStmt.executeUpdate();
+                            try (ResultSet generatedKeys = insertStmt.getGeneratedKeys()) {
+                                if (generatedKeys.next()) {
+                                    categoryId = generatedKeys.getInt(1);
+                                }
                             }
                         }
                     }
                 }
+            } catch (SQLException e) {
+                e.printStackTrace();
             }
-        } catch (SQLException e) {
-            e.printStackTrace();
-        }
-
-        return categoryId;
+            return categoryId;
+        });
     }
+
 
     // Record an article view
     public static int recordArticleView(Connection conn, int articleId, int userId, String username) {
