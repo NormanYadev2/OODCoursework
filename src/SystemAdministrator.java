@@ -27,9 +27,11 @@ public class SystemAdministrator extends Person {
     public static void adminDashboard(Connection conn) {
         while (true) {
             System.out.println("\nAdministrator Dashboard:");
+            System.out.println();
             System.out.println("1. Add Article");
             System.out.println("2. Delete Article");
             System.out.println("3. LogOut");
+            System.out.println();
             System.out.print("Enter your choice: ");
             try {
                 int adminChoice = Integer.parseInt(scanner.nextLine());
@@ -80,6 +82,7 @@ public class SystemAdministrator extends Person {
             }
 
             // Get the article title choice from the user
+            System.out.println();
             System.out.print("Enter the title of the article to add: ");
             String selectedTitle = scanner.nextLine().trim();
 
@@ -110,6 +113,7 @@ public class SystemAdministrator extends Person {
                             }
 
                             // Get the selected category number from the admin
+                            System.out.println();
                             System.out.print("Enter category number: ");
                             int categoryChoice = Integer.parseInt(scanner.nextLine());
 
@@ -159,6 +163,7 @@ public class SystemAdministrator extends Person {
             }
 
             // Get the selected category from user input
+            System.out.println();
             System.out.print("Enter category number: ");
             int categoryChoice = Integer.parseInt(scanner.nextLine());
 
@@ -171,6 +176,7 @@ public class SystemAdministrator extends Person {
                     boolean hasArticles = false;
                     while (articleRs.next()) {
                         if (!hasArticles) {
+                            System.out.println();
                             System.out.println("Select an article to delete:");
                             hasArticles = true;
                         }
@@ -186,6 +192,7 @@ public class SystemAdministrator extends Person {
                     }
 
                     // Step 3: Get the article to delete
+                    System.out.println();
                     System.out.print("Enter article number to delete: ");
                     int articleChoice = Integer.parseInt(scanner.nextLine());
 
