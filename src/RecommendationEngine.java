@@ -147,39 +147,97 @@ public class RecommendationEngine {
     // Handle article selection with rating and viewing
     private void handleArticleSelection(List<Map<String, String>> recommendedArticles, Connection conn) throws SQLException {
         System.out.println("Do you wish to view any of these articles? (yes/no)");
-        String response = scanner.nextLine();
+        String response;
 
+        // Validate initial response for "yes/no"
+        while (true) {
+            response = scanner.nextLine().trim(); // Remove leading/trailing spaces
+            if ("yes".equalsIgnoreCase(response) || "no".equalsIgnoreCase(response)) {
+                break;
+            } else {
+                System.out.println("Invalid input. Please enter 'yes' or 'no':");
+            }
+        }
+
+        // If the user wants to view articles
         if ("yes".equalsIgnoreCase(response)) {
             while (true) {
                 System.out.println("Enter the article number to view its content:");
-                int choice = scanner.nextInt();
-                scanner.nextLine(); // Consume newline
 
-                if (choice > 0 && choice <= recommendedArticles.size()) {
-                    Map<String, String> selectedArticle = recommendedArticles.get(choice - 1);
-                    displayArticleContent(Integer.parseInt(selectedArticle.get("id")), conn);
-
-                    System.out.println("Would you like to rate this article? (yes/no)");
-                    response = scanner.nextLine();
-
-                    if ("yes".equalsIgnoreCase(response)) {
-                        System.out.println("Please rate the article (1 to 5):");
-                        int rating = scanner.nextInt();
+                int choice;
+                // Validate article number input
+                while (true) {
+                    if (scanner.hasNextInt()) {
+                        choice = scanner.nextInt();
                         scanner.nextLine(); // Consume newline
-                        updateArticleRating(conn, selectedArticle.get("id"), rating);
+                        if (choice > 0 && choice <= recommendedArticles.size()) {
+                            break; // Valid article number
+                        } else {
+                            System.out.println("Invalid choice. Enter a number between 1 and " + recommendedArticles.size() + ":");
+                        }
+                    } else {
+                        System.out.println("Invalid input. Please enter a valid number:");
+                        scanner.nextLine(); // Clear invalid input
+                    }
+                }
+
+                // Display the selected article content
+                Map<String, String> selectedArticle = recommendedArticles.get(choice - 1);
+                displayArticleContent(Integer.parseInt(selectedArticle.get("id")), conn);
+
+                System.out.println("Would you like to rate this article? (yes/no)");
+                // Validate response for rating
+                while (true) {
+                    response = scanner.nextLine().trim();
+                    if ("yes".equalsIgnoreCase(response) || "no".equalsIgnoreCase(response)) {
+                        break;
+                    } else {
+                        System.out.println("Invalid input. Please enter 'yes' or 'no':");
+                    }
+                }
+
+                if ("yes".equalsIgnoreCase(response)) {
+                    System.out.println("Please rate the article (1 to 5):");
+
+                    int rating;
+                    // Validate rating input
+                    while (true) {
+                        if (scanner.hasNextInt()) {
+                            rating = scanner.nextInt();
+                            scanner.nextLine(); // Consume newline
+                            if (rating >= 1 && rating <= 5) {
+                                break; // Valid rating
+                            } else {
+                                System.out.println("Invalid rating. Please enter a number between 1 and 5:");
+                            }
+                        } else {
+                            System.out.println("Invalid input. Please enter a number:");
+                            scanner.nextLine(); // Clear invalid input
+                        }
                     }
 
-                    System.out.println("Would you like to see another article? (yes/no)");
-                    response = scanner.nextLine();
-                    if (!"yes".equalsIgnoreCase(response)) {
+                    // Update the article rating in the database
+                    updateArticleRating(conn, selectedArticle.get("id"), rating);
+                }
+
+                System.out.println("Would you like to see another article? (yes/no)");
+                // Validate response for continuing
+                while (true) {
+                    response = scanner.nextLine().trim();
+                    if ("yes".equalsIgnoreCase(response) || "no".equalsIgnoreCase(response)) {
                         break;
+                    } else {
+                        System.out.println("Invalid input. Please enter 'yes' or 'no':");
                     }
-                } else {
-                    System.out.println("Invalid choice. Try again.");
+                }
+
+                if (!"yes".equalsIgnoreCase(response)) {
+                    break; // Exit the loop if the user doesn't want to view another article
                 }
             }
         }
     }
+
 
     // Display article content
     private void displayArticleContent(int articleId, Connection conn) {
